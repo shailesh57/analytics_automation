@@ -1,0 +1,63 @@
+#!/bin/sh
+# sqoop data based on selected environment
+if [[ $# != 6  ]] ; then
+ echo "Usage: crsSqoop.sh  -env qa -payershort  HSPBR  -date 2016-02-18"
+ exit
+fi
+while [[ $# > 1 ]]
+do
+key="$1"
+
+case $key in
+    -env)
+    ENVIRONMENT="$2"
+    shift # past argument
+    ;;
+    -payershort)
+    PAYERSHORT="$2"
+    shift # past argument
+    ;;
+    -date)
+    DATE="$2"
+    shift # past argument
+    ;;
+    *)
+            # unknown option
+    ;;
+esac
+shift # past argument or value
+done
+echo ENVIRONMENT  = "${ENVIRONMENT}"
+echo PAYER SHORT     = "${PAYERSHORT}"
+echo DATE    = "${DATE}"
+
+if [[ $ENVIRONMENT == 'dev' ]] ; then
+   USER="USER_ML_SELECTION"
+   PASSWORD="USER_ML_SELECTION"
+   HOST="nepgqacs01"
+   SERVICE="VPMDEV51.iht.com"
+fi
+if [[ $ENVIRONMENT == 'qa' ]] ; then
+   USER="USER_ML_SELECTION"
+   PASSWORD="USER_ML_SELECTION"
+   HOST="nepgqacs01"
+   SERVICE="VPMQA51.iht.com"
+fi
+
+echo USER = $USER
+# echo PASSWORD = $PASSWORD
+echo HOST = $HOST
+echo SERVICE = $SERVICE
+TABLE="CRS.ML_CLAIM_SCORES_STG"
+HDFSPATH="/user/hadoop_alfresco/PaymentPredictor_DRG/output/$PAYERSHORT/${PAYERSHORT}_output$DATE.csv"
+echo HDFSPATH  = $HDFSPATH
+CONNECTSTRING="jdbc:oracle:thin:$USER/$PASSWORD@(DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST=$HOST)(PORT=1521))(CONNECT_DATA=(SERVICE_NAME=$SERVICE)))"
+echo CONNECTSTRING = $CONNECTSTRING
+
+sqoop export --connect $CONNECTSTRING  --table $TABLE  --export-dir  $HDFSPATH
+
+# call stored procedure
+/opt/instantclient_12_1/sqlplus "USER_ML_SELECTION/USER_ML_SELECTION@(DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST=nepgqacs01)(PORT=1521))(CONNECT_DATA=(SERVICE_NAME=VPMDEV51.iht.com)))" <<END
+execute CRS.UTIL_SELECTION.UPDATE_PARK_FOR_ML_BATCH
+Commit
+exit
